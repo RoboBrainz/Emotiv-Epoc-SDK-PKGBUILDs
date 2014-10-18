@@ -32,7 +32,7 @@ backup=()
 options=()
 install=$pkgname.install
 changelog=
-source=("http://emotiv.com/linuxdeployment/download.php?order=${_ORDERNUM}&key=${_SERIAL}&filename=version2/${_ARCH}/${_EDITION}.tar.gz"
+source=("emotiv-sdk-research_-_${pkgver}.tar.gz::http://emotiv.com/linuxdeployment/download.php?order=${_ORDERNUM}&key=${_SERIAL}&filename=version2/${_ARCH}/${_EDITION}.tar.gz"
 "70-emotiv.rules::http://emotiv.com/linuxdeployment/download.php?filename=70-emotiv.rules")
 md5sums=('429f048f55dd9d8f6e00bb229107ec1c'
          '99813b767dc7fa639e8087ca394f00ab')
@@ -42,6 +42,7 @@ prepare() {
 	sed -e "s|/home/\$USER|/opt|g;s|\./|LD_LIBRARY_PATH=/opt/${_EDITIONDIR}/lib ./bin/|g" -i *.sh
 	sed -e "s|/home/username|env LD_LIBRARY_PATH=/opt/${_EDITIONDIR}/lib /opt|g" -i *.desktop
 	sed -e "s|/\([^/]*\)\.sh|/bin/\1.sh|g" -i *.desktop
+	sed -e "s|username|emotiv|g" -i "$srcdir/70-emotiv.rules"
 }
 
 package() {
@@ -51,29 +52,40 @@ package() {
 	mkdir -p "$pkgdir/opt/${_EDITIONDIR}/"{bin,doc,include}
 	mkdir -p "$pkgdir/usr/share/"{pixmaps,applications}
 	mkdir -p "$pkgdir/etc/udev/rules.d"
-	mkdir -p "$pkgdir/etc/ld.so.conf.d"
 
 	#install~!
-	tar -C "$pkgdir/opt/${_EDITIONDIR}" -xvf "$srcdir/${_EDITION}/lib.tar.gz"
+	msg "Installing libs for Emotiv Epoc SDK" # note: try to replace these with as much as possible the copies already ont he system later
+	tar -C "$pkgdir/opt/${_EDITIONDIR}" -xf "$srcdir/${_EDITION}/lib.tar.gz"
 	mkdir -p "${pkgdir}/opt/${_EDITIONDIR}/lib/Qt/"{plugins,imports}
-	tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/plugins" -xvf "$srcdir/${_EDITION}/sceneformats.tar.gz"
-	tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/plugins" -xvf "$srcdir/${_EDITION}/imageformats.tar.gz"
-	tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/imports" -xvf "$srcdir/${_EDITION}/Qt.tar.gz"
-	tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/imports" -xvf "$srcdir/${_EDITION}/Qt3D.tar.gz"
-	tar -C "$pkgdir/opt/${_EDITIONDIR}/doc" -xvf "$srcdir/${_EDITION}/EmoScript Samples.tar.gz"
+	tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/plugins" -xf "$srcdir/${_EDITION}/sceneformats.tar.gz"
+	tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/plugins" -xf "$srcdir/${_EDITION}/imageformats.tar.gz"
+	tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/imports" -xf "$srcdir/${_EDITION}/Qt.tar.gz"
+	tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/imports" -xf "$srcdir/${_EDITION}/Qt3D.tar.gz"
+	tar -C "$pkgdir/opt/${_EDITIONDIR}/doc" -xf "$srcdir/${_EDITION}/EmoScript Samples.tar.gz"
 
-	tar -C "$pkgdir/opt/${_EDITIONDIR}" -xvf "$srcdir/${_EDITION}/doc.tar.gz"
-	cp -v *.png "$pkgdir/usr/share/pixmaps/"
-	cp -v {EmoComposer,EmoKey,EmotivControlPanel,TestBench}{,.sh} "$pkgdir/opt/${_EDITIONDIR}/bin"
+	tar -C "$pkgdir/opt/${_EDITIONDIR}" -xf "$srcdir/${_EDITION}/doc.tar.gz"
+	msg "Packaging icons..."
+	cp *.png "$pkgdir/usr/share/pixmaps/"
+
+	msg "Packaging executables..."
+	cp {EmoComposer,EmoKey,EmotivControlPanel,TestBench}{,.sh} "$pkgdir/opt/${_EDITIONDIR}/bin"
 	cp *.desktop "$pkgdir/usr/share/applications"
 
-	ln -sv /lib/libudev.so "$pkgdir/opt/${_EDITIONDIR}/lib/libudev.so.0"
+	msg "Workaround for udev..."
+	ln -s /lib/libudev.so "$pkgdir/opt/${_EDITIONDIR}/lib/libudev.so.0"
+
+	msg "Installing udev rules..."
+	cp "$srcdir/70-emotiv.rules" "$pkgdir/etc/udev/rules.d"
 	#ln -sv /lib/libboost_md5.so
 	#ln -sv /lib/libboost_regex.so
 	#ln -sv /lib/libboost_filesystem.so
 	#ln -sv /lib/libboost_system.so
 	#ln -sv /lib/libboost_serialization.so
+
+	msg "Add read perms for doc..."
 	chmod -v +r "$pkgdir/opt/${_EDITIONDIR}/doc/"{examples_{Java,Qt},SDKAgreement.pdf,Test\ Bench\ Manual.pdf}
 	#echo "/opt/${_EDITIONDIR}/lib" > "$pkgdir/etc/ld.so.conf.d/emotiv-research.conf"
+
+	msg "Creating qt.conf for executables..."
 	echo -e "[Paths]\nPlugins=/opt/${_EDITIONDIR}/lib/Qt/plugins\nImports=/opt/${_EDITIONDIR}/lib/Qt/imports" > "$pkgdir/opt/${_EDITIONDIR}/bin/qt.conf"
 }

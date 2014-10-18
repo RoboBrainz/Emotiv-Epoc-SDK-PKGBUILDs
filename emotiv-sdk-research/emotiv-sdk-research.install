@@ -1,7 +1,14 @@
 post_install() {
+	getent group emotiv >/dev/null || groupadd emotiv
 	udevadm control --reload-rules
 }
 
 post_upgrade() {
-	udevadm control --reload-rules
+	post_install
+}
+
+post_uninstall() {
+	if getent group emotiv >/dev/null; then
+			groupdel emotiv
+	fi
 }
