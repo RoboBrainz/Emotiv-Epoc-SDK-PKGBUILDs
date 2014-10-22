@@ -14,14 +14,14 @@ _ORDERNUM=BLANKED_OUT_USE_YOUR_OWN # This is NOT the same as your order number!
 # Maintainer: Your Name <youremail@domain.com>
 pkgname=emotiv-sdk-research
 pkgver=$_VER
-pkgrel=1
+pkgrel=2
 pkgdesc="Emotiv SDK"
 arch=("i686" "x86_64")
 url="https://emotiv.com"
 license=('custom')
 groups=()
-#depends=('udev' 'qt4' 'qt3d-qt4' 'qwt5' 'intel-mkl' 'phonon-qt4')
-depends=('udev')
+#depends=('udev' 'qt3d-qt4' 'qwt5' 'intel-mkl' 'phonon-qt4')
+depends=('udev' 'libjpeg6' 'qt4' 'qt3d-qt4' 'qwt5' 'phonon-qt4' 'openmprtl' 'intel-mkl')
 makedepends=()
 checkdepends=()
 optdepends=()
@@ -41,6 +41,7 @@ prepare() {
 	cd "$srcdir/${_EDITION}"
 	sed -e "s|/home/\$USER|/opt|g;s|\./|LD_LIBRARY_PATH=/opt/${_EDITIONDIR}/lib ./bin/|g" -i *.sh
 	sed -e "s|/home/username|env LD_LIBRARY_PATH=/opt/${_EDITIONDIR}/lib /opt|g" -i *.desktop
+
 	sed -e "s|/\([^/]*\)\.sh|/bin/\1.sh|g" -i *.desktop
 	sed -e "s|username|emotiv|g" -i "$srcdir/70-emotiv.rules"
 }
@@ -52,15 +53,19 @@ package() {
 	mkdir -p "$pkgdir/opt/${_EDITIONDIR}/"{bin,doc,include}
 	mkdir -p "$pkgdir/usr/share/"{pixmaps,applications}
 	mkdir -p "$pkgdir/etc/udev/rules.d"
-
+	
 	#install~!
-	msg "Installing libs for Emotiv Epoc SDK" # note: try to replace these with as much as possible the copies already ont he system later
-	tar -C "$pkgdir/opt/${_EDITIONDIR}" -xf "$srcdir/${_EDITION}/lib.tar.gz"
-	mkdir -p "${pkgdir}/opt/${_EDITIONDIR}/lib/Qt/"{plugins,imports}
-	tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/plugins" -xf "$srcdir/${_EDITION}/sceneformats.tar.gz"
-	tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/plugins" -xf "$srcdir/${_EDITION}/imageformats.tar.gz"
-	tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/imports" -xf "$srcdir/${_EDITION}/Qt.tar.gz"
-	tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/imports" -xf "$srcdir/${_EDITION}/Qt3D.tar.gz"
+	msg "Installing libs for Emotiv Epoc SDK..." # note: try to replace these with as much as possible the copies already on the system later
+	tar -C "$pkgdir/opt/${_EDITIONDIR}" -xf "$srcdir/${_EDITION}/lib.tar.gz" --wildcards --no-anchored "libedk*"
+	tar -C "$pkgdir/opt/${_EDITIONDIR}" -xf "$srcdir/${_EDITION}/lib.tar.gz" --wildcards --no-anchored "libcryptopp*"
+	tar -C "$pkgdir/opt/${_EDITIONDIR}" -xf "$srcdir/${_EDITION}/lib.tar.gz" --wildcards --no-anchored "libboost*.1.51.0"
+	chmod 755 "$pkgdir/opt/${_EDITIONDIR}/lib"
+
+	#mkdir -p "${pkgdir}/opt/${_EDITIONDIR}/lib/Qt/"{plugins,imports}
+	#tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/plugins" -xf "$srcdir/${_EDITION}/sceneformats.tar.gz"
+	#tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/plugins" -xf "$srcdir/${_EDITION}/imageformats.tar.gz"
+	#tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/imports" -xf "$srcdir/${_EDITION}/Qt.tar.gz"
+	#tar -C "$pkgdir/opt/${_EDITIONDIR}/lib/Qt/imports" -xf "$srcdir/${_EDITION}/Qt3D.tar.gz"
 	tar -C "$pkgdir/opt/${_EDITIONDIR}/doc" -xf "$srcdir/${_EDITION}/EmoScript Samples.tar.gz"
 
 	tar -C "$pkgdir/opt/${_EDITIONDIR}" -xf "$srcdir/${_EDITION}/doc.tar.gz"
@@ -74,6 +79,13 @@ package() {
 	msg "Workaround for udev..."
 	ln -s /lib/libudev.so "$pkgdir/opt/${_EDITIONDIR}/lib/libudev.so.0"
 
+	msg "Workaround for qwt5"
+	ln -s /usr/lib/libqwt5.so "$pkgdir/opt/${_EDITIONDIR}/lib/libqwt.so.5"
+
+	#msg "Workaround for cryptopp..."
+	#ln -s /lib/libcryptopp.so "$pkgdir/opt/${_EDITIONDIR}/lib/libcryptopp.so.1"
+
+
 	msg "Installing udev rules..."
 	cp "$srcdir/70-emotiv.rules" "$pkgdir/etc/udev/rules.d"
 	#ln -sv /lib/libboost_md5.so
@@ -82,10 +94,14 @@ package() {
 	#ln -sv /lib/libboost_system.so
 	#ln -sv /lib/libboost_serialization.so
 
+	msg "Putting headers in a common include folder"
+	cp "$pkgdir/opt/${_EDITIONDIR}/doc/examples_Qt/example1/"{edkErrorCode,edk,EmoStateDLL}.h "$pkgdir/opt/${_EDITIONDIR}/include"
+	rm "$pkgdir/opt/${_EDITIONDIR}/doc/examples_Qt/"example*/{edkErrorCode,edk,EmoStateDLL}.h 
+
 	msg "Add read perms for doc..."
-	chmod -v +r "$pkgdir/opt/${_EDITIONDIR}/doc/"{examples_{Java,Qt},SDKAgreement.pdf,Test\ Bench\ Manual.pdf}
+	chmod -R +r "$pkgdir/opt/${_EDITIONDIR}/doc/"
 	#echo "/opt/${_EDITIONDIR}/lib" > "$pkgdir/etc/ld.so.conf.d/emotiv-research.conf"
 
-	msg "Creating qt.conf for executables..."
-	echo -e "[Paths]\nPlugins=/opt/${_EDITIONDIR}/lib/Qt/plugins\nImports=/opt/${_EDITIONDIR}/lib/Qt/imports" > "$pkgdir/opt/${_EDITIONDIR}/bin/qt.conf"
+	#msg "Creating qt.conf for executables..."
+	#echo -e "[Paths]\nPlugins=/opt/${_EDITIONDIR}/lib/Qt/plugins\nImports=/opt/${_EDITIONDIR}/lib/Qt/imports" > "$pkgdir/opt/${_EDITIONDIR}/bin/qt.conf"
 }
